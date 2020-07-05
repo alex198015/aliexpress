@@ -6,28 +6,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const wishlistBtn = document.getElementById('wishlist');
     const cart = document.querySelector('.cart');
     const category = document.querySelector('.category');
-    let cartCounter = cartBtn.querySelector('.counter')
-    let wishlisCounter = wishlistBtn.querySelector('.counter')
-    let cartWrapper = document.querySelector('.cart-wrapper')
+    const cartCounter = cartBtn.querySelector('.counter')
+    const wishlisCounter = wishlistBtn.querySelector('.counter')
+    const cartWrapper = document.querySelector('.cart-wrapper')
+    const cartTotal = document.querySelector('.cart-total>span')
 
-    let wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
-    let goodsBasket = {}
+
+    const wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
+    const goodsBasket = {}
   
+    // wishlist.push(...JSON.parse(localStorage.getItem('wishlist')))
 
-    const loading = () => {
-        goodsWrapper.innerHTML = `
+    const loading = (nameFunction) => {
+        const spinner = `
             <div id="spinner"><div class="spinner-loading"><div><div><div></div>
             </div><div><div></div></div><div><div></div></div><div><div></div></div></div></div></div>
         `
+        if(nameFunction === 'renderCard'){
+            goodsWrapper.innerHTML = spinner
+        }
+        if(nameFunction === 'renderBasket'){
+            cartWrapper.innerHTML = spinner
+        }
     }
 
     const getGoods = (handler, filter) => {
-        loading()
+       
+        loading(handler.name)
         fetch('./db/db.json')
             .then(res => res.json())
             .then(filter)
             .then(handler)
-            
 
     }
 
@@ -61,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     }
 
+
     const renderCard = (items) => {
         checkCount()
         if(items.length){
@@ -80,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // создаем корзину 
     
     const createCardBasket = ({ id,  title, price,imgMin }) => {
-        
+      
         
         const card = document.createElement('div');
         
@@ -102,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             data-goods-id="${id}"></button>
                             <button class="goods-delete" data-goods-id="${id}"></button>
                         </div>
-                        <div class="goods-count">1</div>
+                        <div class="goods-count">${goodsBasket[id]}</div>
                     </div>
                         `
                         
@@ -122,21 +132,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }else{
             cartWrapper.innerHTML = `<div id="cart-empty"> Ваша корзина пока пуста</div>`
            
-       
             }
-       
-
     }
+
 
     const randomSort = items => items.sort(() => Math.random() - 0.5)
 
+    const showCartBasket = (goods) => {
+        const itemBasket = goods.filter(item => goodsBasket.hasOwnProperty(item.id))
+            
+        const total = itemBasket.reduce((acc, item) => acc + item.price * goodsBasket[item.id],0)
+        cartTotal.textContent = total.toFixed(2)
+        
+
+        return itemBasket
+    }
 
     const openCart = event => {
         event.preventDefault()
         cart.style.display = 'flex'
         document.addEventListener('keyup', closeCart)
         // getGoods(renderBasket, goods => goods.filter(item => Object.keys(goodsBasket).includes(item.id)))
-        getGoods(renderBasket, goods => goods.filter(item => goodsBasket.hasOwnProperty(item.id)))
+        getGoods(renderBasket, showCartBasket)
+        
     }
 
     const closeCart = (e) => {
@@ -145,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (target.closest('.cart-close') || target === cart || e.keyCode === 27)
             cart.style.display = 'none'
-            location.reload()
+            
         if (e.keyCode === 27) {
             document.removeEventListener('keyup', closeCart)
         }
@@ -198,11 +216,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const cookieQuery = get => {
         if(get){
-            goodsBasket = JSON.parse(getCookie('goodsBasket'))
+            if(getCookie('goodsBasket'))
+                Object.assign(goodsBasket, JSON.parse(getCookie('goodsBasket')))
         }else{
-            document.cookie = `goodsBasket=${JSON.stringify(goodsBasket)}; max-age=86400e3`
+           
+                document.cookie = `goodsBasket=${JSON.stringify(goodsBasket)}; max-age=86400e3`
         }
-        console.log(goodsBasket);
         
     }
 
@@ -263,14 +282,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
 
+    const removeGoods = (id) => {
+        delete goodsBasket[id]
+        checkCount()
+        cookieQuery()
+        getGoods(renderBasket, showCartBasket)
+    }
+
+    const handlerBasket = (event) => {
+        const target = event.target
+        
+       
+        if(target.closest('.goods-add-wishlist')){
+            const id = target.dataset.goodsId
+             toggleWishlist(id,target)
+        }
+        if(target.matches('.goods-delete')){
+            const id = target.dataset.goodsId
+            removeGoods(id)
+        }
+ 
+    }
+
+    {
     cartBtn.addEventListener('click', openCart)
     cart.addEventListener('click', closeCart)
     category.addEventListener('click', chooseCategory)
     search.addEventListener('submit', searchGoods)
     goodsWrapper.addEventListener('click', handlerGoods )
     wishlistBtn.addEventListener('click', showWishList)
+    cartWrapper.addEventListener('click', handlerBasket)
 
     getGoods(renderCard, randomSort)
     cookieQuery(true)
+}
 
-})
+});
+
